@@ -13,7 +13,8 @@ sct = mss.mss()
 display_time = 1
 fps = 0
 start_time = time.time()
-
+path_or_model = './best.pt'  # path to model
+appTitle = 'Yolov7CustomDetector'
 
 def GetFpsCount():
     global fps, start_time
@@ -30,9 +31,8 @@ def GrubScreen(p_input):
         sct_img = numpy.array(sct_img)
         sct_img = cv2.cvtColor(sct_img, cv2.COLOR_RGB2BGR)
         p_input.send(sct_img)
-        
-def Yolov7_render(p_output, p_input2):
-    path_or_model = './best.pt'  # path to model
+
+def LoadYolov7Model():
     model = torch.load(path_or_model, map_location=torch.device('cpu')) if isinstance(
         path_or_model, str) else path_or_model  # load checkpoint
     if isinstance(model, dict):
@@ -43,6 +43,10 @@ def Yolov7_render(p_output, p_input2):
     hub_model = hub_model.autoshape()
     device = select_device('0' if torch.cuda.is_available() else 'cpu')
     model = hub_model.to(device)
+    return model
+
+def Yolov7Render(p_output, p_input2):
+    model = LoadYolov7Model()
     while (True):
         image = p_output.recv()
         result = model(image)
@@ -53,11 +57,10 @@ def ShowImage(p_output2):
     while True:  
         img = p_output2.recv()
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        cv2.imshow("Screenshot!", img)
+        cv2.imshow(appTitle, img)
         GetFpsCount()
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-
 
 
 if __name__ == "__main__":
@@ -66,10 +69,8 @@ if __name__ == "__main__":
     p_output2, p_input2 = Pipe()
 
     p1 = multiprocessing.Process(target=GrubScreen, args=(p_input,))
-    p2 = multiprocessing.Process(
-        target=Yolov7_render, args=(p_output, p_input2))
+    p2 = multiprocessing.Process(target=Yolov7Render, args=(p_output, p_input2))
     p3 = multiprocessing.Process(target=ShowImage, args=(p_output2,))
-
 
     p1.start()
     p2.start()
